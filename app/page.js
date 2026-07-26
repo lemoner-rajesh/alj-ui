@@ -1,66 +1,167 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { ArticleCardGrid, ArticleCardSkeleton } from "@/components/ArticleCard";
+import { parseClaudeResponse } from "@/lib/parseResponse";
+
+let nextId = 1;
+function makeId() {
+  return nextId++;
+}
 
 export default function Home() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, loading]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: makeId(), role: "user", text: trimmed },
+    ]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+
+      const { text, articles } = parseClaudeResponse(data);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId(),
+          role: "assistant",
+          text,
+          articles,
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId(),
+          role: "assistant",
+          error: err?.message || "Something went wrong.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="chat-page">
+      <header className="chat-header">
+        <h1>ALJ News</h1>
+        <p>Ask about the latest ALJ news, people, projects, and events.</p>
+      </header>
+
+      <div className="chat-messages" ref={listRef}>
+        {messages.length === 0 ? (
+          <div className="chat-empty">
+            Try asking: &ldquo;What are the latest news articles on
+            ALJ?&rdquo;
+          </div>
+        ) : null}
+
+        {messages.map((m) => (
+          <MessageBubble key={m.id} message={m} />
+        ))}
+
+        {loading ? <LoadingBubble /> : null}
+      </div>
+
+      <form className="chat-input-bar" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask about ALJ news, people, projects, or events..."
+          disabled={loading}
+          autoFocus
         />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <button type="submit" disabled={loading || !input.trim()}>
+          {loading ? "Sending..." : "Send"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function MessageBubble({ message }) {
+  if (message.role === "user") {
+    return (
+      <div className="message-row user">
+        <div className="message-bubble user">{message.text}</div>
+      </div>
+    );
+  }
+
+  if (message.error) {
+    return (
+      <div className="message-row assistant">
+        <div className="message-bubble error">
+          <strong>Something went wrong.</strong>
+          <p>{message.error}</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+    );
+  }
+
+  const hasArticles = message.articles && message.articles.length > 0;
+
+  return (
+    <div className="message-row assistant">
+      <div className="message-content">
+        {message.text ? (
+          <div className="message-bubble assistant">{message.text}</div>
+        ) : null}
+
+        {/* Every parsed result with a `display` field always renders as a
+            card here — this is unconditional, never left to model text. */}
+        {hasArticles ? <ArticleCardGrid articles={message.articles} /> : null}
+
+        {!message.text && !hasArticles ? (
+          <div className="message-bubble assistant muted">
+            No results found.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function LoadingBubble() {
+  return (
+    <div className="message-row assistant">
+      <div className="message-content">
+        <div className="message-bubble assistant muted">Thinking...</div>
+        <div className="article-grid">
+          <ArticleCardSkeleton />
+          <ArticleCardSkeleton />
         </div>
-      </main>
+      </div>
     </div>
   );
 }

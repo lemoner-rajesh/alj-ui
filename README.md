@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ALJ UI
 
-## Getting Started
+A minimal Next.js (App Router) chat app that talks to Claude with the ALJ
+Connect MCP server attached. News, people, project, and event results are
+**always** rendered as visual cards — never as plain text.
 
-First, run the development server:
+## How it works
+
+- `app/page.js` — single-page chat UI: a text input, a submit button, and a
+  scrollable message list.
+- `app/api/chat/route.js` — server route that calls the Claude Messages API
+  (via the `@anthropic-ai/sdk`) with the ALJ Connect MCP server attached, and
+  returns the raw response as JSON.
+- `lib/parseResponse.js` — deterministically parses the Claude response:
+  `mcp_tool_result` blocks are JSON-parsed and normalized into an array of
+  results, and any result with a `display` field is guaranteed to render as
+  a card. `text` blocks are collected separately and shown only as narration
+  alongside the cards, never as a replacement for them.
+- `components/ArticleCard.js` — the card component (and grid/skeleton
+  variants) used to render every card-eligible result.
+
+## Setup
+
+### 1. Set your Anthropic API key
+
+Add your key to `.env.local` in the project root (already gitignored):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install dependencies and run locally
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000) and try asking:
 
-## Learn More
+> What are the latest news articles on ALJ?
 
-To learn more about Next.js, take a look at the following resources:
+You should see a short text reply from Claude followed by a grid of article
+cards — never a wall of plain text.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploying to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push this repository to GitHub (or another Git provider Vercel supports).
+2. In the [Vercel dashboard](https://vercel.com/new), import the repository.
+3. Vercel auto-detects the Next.js framework — no build settings need to
+   change.
+4. Add an environment variable in the Vercel project settings:
+   - **Key:** `ANTHROPIC_API_KEY`
+   - **Value:** your Anthropic API key
+5. Deploy. Every subsequent push to the connected branch redeploys
+   automatically.
 
-## Deploy on Vercel
+You can also deploy from the CLI:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm install -g vercel
+vercel
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Follow the prompts, then set `ANTHROPIC_API_KEY` with:
+
+```bash
+vercel env add ANTHROPIC_API_KEY
+```
