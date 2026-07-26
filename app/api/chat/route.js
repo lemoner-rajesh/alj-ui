@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 const MODEL = "claude-sonnet-4-6";
-const MCP_SERVER_URL = "https://alj-connect-production.up.railway.app/mcp";
+const MCP_SERVER_URL = "https://lemonhq-production.up.railway.app/mcp";
 const MCP_SERVER_NAME = "alj-connect";
 
 export async function POST(request) {
