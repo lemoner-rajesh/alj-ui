@@ -25,7 +25,7 @@ export async function POST(request) {
     return Response.json(
       {
         error:
-          "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the dev server.",
+          "ANTHROPIC_API_KEY is not set on the server. Locally, add it to .env.local and restart the dev server. On a host like Vercel or Railway, set it as a project environment variable and redeploy.",
       },
       { status: 500 }
     );
